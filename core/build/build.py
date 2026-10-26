@@ -47,7 +47,7 @@ def parse_command_line(host_system):
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--platform', help = "Target operating system.", choices = ['windows', 'osx', 'linux', 'android', 'ios', 'wasm'], type = str.lower, default = host_system)
     parser.add_argument('-t', '--toolchain', help = "Compiler toolchain. (Windows only)", choices = ['vs2013', 'vs2015', 'vs2017', 'vs2019', 'vs2022', 'vs2026'], type = str.lower, default = 'vs2019')
-    parser.add_argument('-a', '--architecture', help = "CPU architecture.", choices = ['x86', 'x64', 'armv7', 'arm64'], type = str.lower, default = 'x64')
+    parser.add_argument('-a', '--architecture', help = "CPU architecture.", choices = ['x86', 'x64', 'armv7', 'arm64', 'arm64ec'], type = str.lower, default = 'x64')
     parser.add_argument('-c', '--configuration', help = "Build configuration.", choices = ['debug', 'release'], type = str.lower, default = 'release')
     parser.add_argument('-o', '--operation', help = "CMake operation.", choices = ['generate', 'build', 'test', 'install', 'package', 'default', 'ci_build', 'ci_package'], type = str.lower, default = 'default')
     parser.add_argument('--minimal', action='store_true', help='Use build options that minimize dependencies.')
@@ -122,6 +122,8 @@ def cmake_generate(args):
             cmake_args += ['-A', 'x64']
         elif args.architecture == 'arm64':
             cmake_args += ['-A', 'ARM64']
+        elif args.architecture == 'arm64ec':
+            cmake_args += ['-A', 'ARM64EC']
 
     elif args.platform == 'linux':
         cmake_args += ['-DCMAKE_BUILD_TYPE=' + config_name(args)]
