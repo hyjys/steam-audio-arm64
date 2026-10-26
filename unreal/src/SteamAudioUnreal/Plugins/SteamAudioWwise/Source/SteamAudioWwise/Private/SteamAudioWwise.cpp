@@ -47,20 +47,18 @@ FString FSteamAudioWwiseModule::GetDynamicLibraryPath(FString LibName)
 {
 	FString LibraryPath;
 
-#if defined(_M_ARM64)
-#define AK_WINDOWS_ARCHITECTURE "ARM64_"
-#elif PLATFORM_64BITS
+#if PLATFORM_64BITS
 #define AK_WINDOWS_ARCHITECTURE "x64_"
 #else
 #define AK_WINDOWS_ARCHITECTURE "Win32_"
 #endif
 
 #if PLATFORM_WINDOWS
-#ifdef AK_WINDOWS_VS_VERSION
+#if defined(_M_ARM64)
+	// Unlike x86/x64, the Wwise SDK has a single native ARM64 directory, without a toolchain suffix.
+	constexpr auto PlatformArchitecture = "ARM64";
+#elif defined(AK_WINDOWS_VS_VERSION)
 	constexpr auto PlatformArchitecture = AK_WINDOWS_ARCHITECTURE AK_WINDOWS_VS_VERSION;
-#elif defined(_M_ARM64)
-	// The Steam Audio Wwise plugin is only built with the vc170 toolchain for ARM64.
-	constexpr auto PlatformArchitecture = AK_WINDOWS_ARCHITECTURE "vc170";
 #else
 	constexpr auto PlatformArchitecture = AK_WINDOWS_ARCHITECTURE "vc160";
 #endif

@@ -216,3 +216,39 @@ Embree와 ISPC는 이번 범위에서 **제외**한다. ISPC가 `1.12 EXACT`로 
 3. `integrations: Add Linux arm64 and Windows arm64 support`
 4. `ci: Build and test core on native arm64 Linux and Windows`
 5. `Bump version to 4.9.0, and document arm64 support`
+
+---
+
+## 7. 공식 문서 확인 결과 (2026-10-26)
+
+추정으로 정한 경로와 플랫폼 이름을 각 벤더의 공식 문서와 대조했다.
+
+| 항목 | 추정 | 공식 문서 | 판정 / 조치 |
+|---|---|---|---|
+| Wwise Windows ARM64 SDK 디렉터리 | `ARM64_vc170` | `SDK\ARM64`. toolchain 접미사가 없고 ARM64EC 바이너리는 제공하지 않는다. 2024.1과 2026.1 문서에 있고 2023.1에는 없다. | **틀림 → 수정함.** CMake(`wwise_windows_sdk_dir` 매크로)와 Unreal 로더를 `ARM64`로 바꿨다. |
+| Wwise Linux arm64 | `Linux_aarch64`, `-x aarch64` | `Linux_aarch64`, `AK_LINUX_ARCH=aarch64` | 맞음 |
+| Wwise native ARM64 런타임 | native 플러그인만 로드 | "only supports loading Wwise plug-ins compiled as native Arm64 shared libraries" | 맞음 |
+| `wp.py build ... -x ARM64` | `-x ARM64` | 문서에 ARM64 값이 명시돼 있지 않다("Consult the help of the build command"). | **미확인.** SDK의 `wp.py --help`로 확인해야 한다. |
+| FMOD Core API | Windows/Linux arm64 지원 | Windows: x86, x64, ARM64(NEON), 2.02.21부터. Linux: arm64(armv8, GLIBC 2.17). `lib/$ARCH` | 맞음 |
+| FMOD for Unity Windows Arm64 | 지원 | 2.03.09에서 추가, 2.03.10에서 플러그인 로드 위치 수정 | 맞음(최소 2.03.10 권장). 폴더 이름 `platforms/win/lib/arm64`는 문서에 없어서 **미확인**이다. |
+| FMOD for Unreal arm64 | `Binaries/WinArm64`, `Binaries/LinuxArm64` | 문서에 arm64 언급이 없다(Linux는 `Binaries/Linux/x86_64`만 있음). | Steam Audio가 직접 경로를 지정해서 로드하므로 자체 규칙으로 유지한다. **FMOD 공식 지원은 미확인.** |
+| Unity Windows ARM64 player | Win64 + CPU `ARM64` | Windows player가 Arm64를 지원하고, `StandaloneWindows64`가 Arm64와 x64를 함께 포함한다. 2023.1.0b19 이전에는 같은 이름의 플러그인이 여러 위치에 있으면 빌드가 실패했다. | 맞음. x86_64 meta를 `x86_64`로 고정한 조치가 이 동작과 맞는다. |
+| Unity Linux arm64 player | `Binaries/Linux/ARM64` (Standalone Linux64) | **Desktop Linux player는 x64만 지원**한다. Arm64는 Linux Dedicated Server와 Embedded Linux(`Assets/Plugins/EmbeddedLinux/ARM64`)만 지원한다. | **부분적으로 틀림.** 일반 데스크톱 Linux 게임은 arm64로 빌드할 수 없다. 이 meta는 Dedicated Server arm64용으로만 의미가 있고, 이 경우의 CPU 옵션도 미확인이다. Embedded Linux는 다루지 않았다. |
+| Unreal Windows ARM64 | `Target.Architecture == UnrealArch.Arm64`(UE 5.2+) | 공식 지원은 **UE 5.8 Experimental**이고 game target만 해당한다(Editor 미지원). `Architecture`의 타입이 `UnrealArch`인 것은 확인했다. | 타입은 맞음. 멤버 이름 `UnrealArch.Arm64`는 공개 문서에 없어서 **미확인**이다(엔진 소스 접근 필요). |
+| ARM64EC 매크로 | `_M_ARM64` 미정의 | Microsoft: ARM64EC는 x64와 같은 `_M_AMD64`/`_AMD64_`를 정의한다. | 맞음. `_M_ARM64` 기반 분기와 ARM64EC `#error`가 올바르다. |
+| Unreal LinuxArm64 | `UnrealTargetPlatform.LinuxArm64` | Epic 문서에서 확인하지 못했다(페이지 렌더링 실패). 커뮤니티에서는 공식 지원이 아니라는 언급이 있다. | **미확인.** |
+
+### 출처
+- Wwise Windows-Specific Information (2024.1.18 / 2025.1.12 / 2026.1.3): https://www.audiokinetic.com/en/public-library/2024.1.18_9194/?source=SDK&id=windows_specificinfo.html
+- Wwise Linux-Specific Information: https://www.audiokinetic.com/en/public-library/2025.1.12_9287/?source=SDK&id=linux_specificinfo.html
+- Wwise Building plug-ins (wp.py): https://www.audiokinetic.com/en/public-library/2025.1.12_9287/?source=SDK&id=effectplugin_tools_building.html
+- FMOD Windows / Linux platform docs: https://fmod.com/docs/2.03/api/platforms-win.html , https://fmod.com/docs/2.03/api/platforms-linux.html
+- FMOD revision history: https://fmod.com/docs/2.03/api/welcome-revision-history.html
+- FMOD for Unreal platform specifics: https://fmod.com/docs/2.03/unreal/platform-specifics.html
+- Unity system requirements (6000.6): https://docs.unity3d.com/6000.6/Documentation/Manual/system-requirements.html
+- Unity Embedded Linux plug-in auto-detection: https://docs.unity3d.com/6000.3/Documentation/Manual/embedded-linux-autodetect-plugins.html
+- Unity BuildTarget.StandaloneWindows64: https://docs.unity3d.com/6000.1/Documentation/ScriptReference/BuildTarget.StandaloneWindows64.html
+- Unity issue (Windows ARM64 duplicate plugin): https://issuetracker.unity3d.com/issues/nativeplugins-fail-to-build-when-building-for-windows-arm64
+- Unreal Windows ARM64 (5.8): https://dev.epicgames.com/documentation/unreal-engine/windows-arm64-support-in-unreal-engine-5-8
+- Unreal Build Tool Target Reference: https://dev.epicgames.com/documentation/unreal-engine/unreal-engine-build-tool-target-reference
+- Microsoft Arm64EC ABI: https://learn.microsoft.com/en-us/windows/arm/arm64ec-abi
