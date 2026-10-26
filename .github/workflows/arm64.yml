@@ -34,12 +34,17 @@ jobs:
       - name: Dependencies
         run: python3.9 get_dependencies.py -p linux -a arm64
       - name: Generate
-        run: python3.9 build.py -p linux -a arm64 --minimal -o generate
+        # Not --minimal, which disables Embree.
+        run: python3.9 build.py -p linux -a arm64 -o generate
       - name: Build
         run: cmake --build linux-arm64-release --parallel 4
       - name: Test
         working-directory: core/build/linux-arm64-release
         run: ctest --output-on-failure
+      - name: Test ray tracers (Embree vs. built-in)
+        # These tests are excluded from the default test run (see src/test/CMakeLists.txt).
+        working-directory: core/src/test
+        run: ../../build/linux-arm64-release/src/test/phonon_test '[ReflectionSimulator]'
       - name: Check glibc requirement
         run: |
           versions=$(objdump -T linux-arm64-release/src/core/libphonon.so | grep -o 'GLIBC_[0-9.]*' | sort -u -V)
