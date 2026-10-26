@@ -89,6 +89,16 @@ endif()
 # BUILD
 # ---------------------------------------------------------------------------------------------------------------------
 
+# Wwise names Linux SDK directories Linux_<arch>. Windows on ARM64 is only supported by the Wwise SDK when building with
+# the vc170 (Visual Studio 2022) toolchain.
+if (IPL_CPU_ARMV8)
+    set(Wwise_LINUX_ARCHITECTURE aarch64)
+    set(Wwise_WINDOWS_TOOLCHAINS vc170)
+else()
+    set(Wwise_LINUX_ARCHITECTURE x64)
+    set(Wwise_WINDOWS_TOOLCHAINS vc160 vc170)
+endif()
+
 add_custom_target(phonon_wwise ALL)
 
 if (IPL_OS_WINDOWS)
@@ -96,14 +106,20 @@ if (IPL_OS_WINDOWS)
         set(Wwise_ARCHITECTURE Win32)
     elseif (IPL_CPU_X64)
         set(Wwise_ARCHITECTURE x64)
+    elseif (IPL_CPU_ARMV8)
+        set(Wwise_ARCHITECTURE ARM64)
     endif()
 
-    add_custom_target(phonon_wwise_windows_vs2019
-        COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Windows_vc160 -x ${Wwise_ARCHITECTURE} -t vc160 -c Debug
-        COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Windows_vc160 -x ${Wwise_ARCHITECTURE} -t vc160 -c Profile
-        COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Windows_vc160 -x ${Wwise_ARCHITECTURE} -t vc160 -c Release
-        WORKING_DIRECTORY   ${CMAKE_CURRENT_SOURCE_DIR}
-    )
+    if ("vc160" IN_LIST Wwise_WINDOWS_TOOLCHAINS)
+        add_custom_target(phonon_wwise_windows_vs2019
+            COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Windows_vc160 -x ${Wwise_ARCHITECTURE} -t vc160 -c Debug
+            COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Windows_vc160 -x ${Wwise_ARCHITECTURE} -t vc160 -c Profile
+            COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Windows_vc160 -x ${Wwise_ARCHITECTURE} -t vc160 -c Release
+            WORKING_DIRECTORY   ${CMAKE_CURRENT_SOURCE_DIR}
+        )
+
+        add_dependencies(phonon_wwise phonon_wwise_windows_vs2019)
+    endif()
 
     add_custom_target(phonon_wwise_windows_vs2022
         COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Windows_vc170 -x ${Wwise_ARCHITECTURE} -t vc170 -c Debug
@@ -112,7 +128,6 @@ if (IPL_OS_WINDOWS)
         WORKING_DIRECTORY   ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
-    add_dependencies(phonon_wwise phonon_wwise_windows_vs2019)
     add_dependencies(phonon_wwise phonon_wwise_windows_vs2022)
 
     if (IPL_CPU_X64)
@@ -129,11 +144,11 @@ if (IPL_OS_WINDOWS)
 
         add_dependencies(phonon_wwise phonon_wwise_windows_authoring phonon_wwise_documentation)
     endif()
-elseif (IPL_OS_LINUX AND IPL_CPU_X64)
+elseif (IPL_OS_LINUX AND (IPL_CPU_X64 OR IPL_CPU_ARMV8))
     add_custom_target(phonon_wwise_linux
-        COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Linux -x x64 -c Debug
-        COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Linux -x x64 -c Profile
-        COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Linux -x x64 -c Release
+        COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Linux -x ${Wwise_LINUX_ARCHITECTURE} -c Debug
+        COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Linux -x ${Wwise_LINUX_ARCHITECTURE} -c Profile
+        COMMAND             ${Python3_EXECUTABLE} ${Wwise_WP_PY} build Linux -x ${Wwise_LINUX_ARCHITECTURE} -c Release
         WORKING_DIRECTORY   ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
@@ -193,6 +208,9 @@ if (IPL_OS_WINDOWS)
     elseif (IPL_CPU_X64)
         set(Wwise_ARCHITECTURE x64)
         set(Wwise_ARCHITECTURE_UNITY x86_64)
+    elseif (IPL_CPU_ARMV8)
+        set(Wwise_ARCHITECTURE ARM64)
+        set(Wwise_ARCHITECTURE_UNITY ARM64)
     endif()
 
     # copy the vs2022 release build
@@ -210,6 +228,8 @@ if (IPL_OS_WINDOWS)
 elseif (IPL_OS_LINUX)
     if (IPL_CPU_X64)
         set(Wwise_ARCHITECTURE x86_64)
+    elseif (IPL_CPU_ARMV8)
+        set(Wwise_ARCHITECTURE ARM64)
     endif()
 
     # copy the release build
@@ -217,7 +237,7 @@ elseif (IPL_OS_LINUX)
 
     add_custom_target(phonon_wwise_copy_unity_${Wwise_ARCHITECTURE} ALL
         COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNITY_WWISE_PLUGIN_DIR}/Linux/${Wwise_ARCHITECTURE}/DSP"
-        COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../Linux_x64/${Wwise_CONFIGURATION}/bin/libSteamAudioWwise.so" "${UNITY_WWISE_PLUGIN_DIR}/Linux/${Wwise_ARCHITECTURE}/DSP"
+        COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../Linux_${Wwise_LINUX_ARCHITECTURE}/${Wwise_CONFIGURATION}/bin/libSteamAudioWwise.so" "${UNITY_WWISE_PLUGIN_DIR}/Linux/${Wwise_ARCHITECTURE}/DSP"
         VERBATIM
     )
 
@@ -288,9 +308,11 @@ if (IPL_OS_WINDOWS)
         set(Wwise_ARCHITECTURE Win32)
     elseif (IPL_CPU_X64)
         set(Wwise_ARCHITECTURE x64)
+    elseif (IPL_CPU_ARMV8)
+        set(Wwise_ARCHITECTURE ARM64)
     endif()
 
-    foreach (Wwise_TOOLCHAIN IN ITEMS vc160 vc170)
+    foreach (Wwise_TOOLCHAIN IN ITEMS ${Wwise_WINDOWS_TOOLCHAINS})
         foreach (Wwise_CONFIGURATION IN ITEMS Debug Profile Release)
             add_custom_target(phonon_wwise_copy_unreal_${Wwise_TOOLCHAIN}_${Wwise_CONFIGURATION}
                 COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION}/bin"
@@ -308,10 +330,10 @@ if (IPL_OS_WINDOWS)
 elseif (IPL_OS_LINUX)
     foreach (Wwise_CONFIGURATION IN ITEMS Debug Profile Release)
         add_custom_target(phonon_wwise_copy_unreal_${Wwise_CONFIGURATION}
-            COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNREAL_WWISE_PLUGIN_DIR}/Linux_x64/${Wwise_CONFIGURATION}/bin"
-            COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNREAL_WWISE_PLUGIN_DIR}/Linux_x64/${Wwise_CONFIGURATION}/lib"
-            COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../Linux_x64/${Wwise_CONFIGURATION}/bin/libSteamAudioWwise.so" "${UNREAL_WWISE_PLUGIN_DIR}/Linux_x64/${Wwise_CONFIGURATION}/bin"
-            COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../Linux_x64/${Wwise_CONFIGURATION}/lib/libSteamAudioWwiseFX.a" "${UNREAL_WWISE_PLUGIN_DIR}/Linux_x64/${Wwise_CONFIGURATION}/lib"
+            COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNREAL_WWISE_PLUGIN_DIR}/Linux_${Wwise_LINUX_ARCHITECTURE}/${Wwise_CONFIGURATION}/bin"
+            COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNREAL_WWISE_PLUGIN_DIR}/Linux_${Wwise_LINUX_ARCHITECTURE}/${Wwise_CONFIGURATION}/lib"
+            COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../Linux_${Wwise_LINUX_ARCHITECTURE}/${Wwise_CONFIGURATION}/bin/libSteamAudioWwise.so" "${UNREAL_WWISE_PLUGIN_DIR}/Linux_${Wwise_LINUX_ARCHITECTURE}/${Wwise_CONFIGURATION}/bin"
+            COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../Linux_${Wwise_LINUX_ARCHITECTURE}/${Wwise_CONFIGURATION}/lib/libSteamAudioWwiseFX.a" "${UNREAL_WWISE_PLUGIN_DIR}/Linux_${Wwise_LINUX_ARCHITECTURE}/${Wwise_CONFIGURATION}/lib"
             VERBATIM
         )
 
@@ -384,13 +406,13 @@ set(Wwise_AUTHORING_CONFIGURATIONS "Debug" "Release")
 if (IPL_OS_WINDOWS)
     if (IPL_CPU_X86)
         set(Wwise_ARCHITECTURE Win32)
+    elseif (IPL_CPU_ARMV8)
+        set(Wwise_ARCHITECTURE ARM64)
     else()
         set(Wwise_ARCHITECTURE x64)
     endif()
 
-    set(Wwise_TOOLCHAINS "vc160" "vc170")
-
-    foreach (Wwise_TOOLCHAIN IN ITEMS ${Wwise_TOOLCHAINS})
+    foreach (Wwise_TOOLCHAIN IN ITEMS ${Wwise_WINDOWS_TOOLCHAINS})
         foreach (Wwise_CONFIGURATION IN ITEMS ${Wwise_CONFIGURATIONS})
             set(Wwise_INSTALL_SUBDIR ${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION})
             set(Wwise_INSTALL_SRCDIR ${Wwise_INCLUDE_DIR}/../../${Wwise_INSTALL_SUBDIR})
@@ -448,9 +470,9 @@ if (IPL_OS_WINDOWS)
         )
     endif()
 
-elseif (IPL_OS_LINUX AND IPL_CPU_X64)
+elseif (IPL_OS_LINUX AND (IPL_CPU_X64 OR IPL_CPU_ARMV8))
     foreach (Wwise_CONFIGURATION IN ITEMS ${Wwise_CONFIGURATIONS})
-        set(Wwise_INSTALL_SUBDIR Linux_x64/${Wwise_CONFIGURATION})
+        set(Wwise_INSTALL_SUBDIR Linux_${Wwise_LINUX_ARCHITECTURE}/${Wwise_CONFIGURATION})
         set(Wwise_INSTALL_SRCDIR ${Wwise_INCLUDE_DIR}/../../${Wwise_INSTALL_SUBDIR})
 
         install(

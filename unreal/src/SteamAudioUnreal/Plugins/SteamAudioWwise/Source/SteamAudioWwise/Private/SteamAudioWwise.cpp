@@ -47,7 +47,9 @@ FString FSteamAudioWwiseModule::GetDynamicLibraryPath(FString LibName)
 {
 	FString LibraryPath;
 
-#if PLATFORM_64BITS
+#if defined(_M_ARM64)
+#define AK_WINDOWS_ARCHITECTURE "ARM64_"
+#elif PLATFORM_64BITS
 #define AK_WINDOWS_ARCHITECTURE "x64_"
 #else
 #define AK_WINDOWS_ARCHITECTURE "Win32_"
@@ -56,13 +58,20 @@ FString FSteamAudioWwiseModule::GetDynamicLibraryPath(FString LibName)
 #if PLATFORM_WINDOWS
 #ifdef AK_WINDOWS_VS_VERSION
 	constexpr auto PlatformArchitecture = AK_WINDOWS_ARCHITECTURE AK_WINDOWS_VS_VERSION;
+#elif defined(_M_ARM64)
+	// The Steam Audio Wwise plugin is only built with the vc170 toolchain for ARM64.
+	constexpr auto PlatformArchitecture = AK_WINDOWS_ARCHITECTURE "vc170";
 #else
 	constexpr auto PlatformArchitecture = AK_WINDOWS_ARCHITECTURE "vc160";
 #endif
 	LibraryPath = FAkPlatform::GetDSPPluginsDirectory(PlatformArchitecture);
 	LibraryPath += (LibName + ".dll");
 #elif PLATFORM_LINUX
+#if defined(__aarch64__)
+	constexpr auto PlatformArchitecture = "Linux_aarch64";
+#else
 	constexpr auto PlatformArchitecture = "Linux_x64";
+#endif
 	LibraryPath = FAkPlatform::GetDSPPluginsDirectory(PlatformArchitecture);
 	LibraryPath += ("lib" + LibName + ".so");
 #elif PLATFORM_MAC
