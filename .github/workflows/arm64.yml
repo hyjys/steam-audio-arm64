@@ -1,0 +1,101 @@
+# Builds the Steam Audio SDK (core) and runs its unit tests on arm64 Linux and Windows, plus an x64 Linux build to
+# catch regressions in the shared build scripts.
+name: arm64
+
+on:
+  push:
+    paths:
+      - 'core/**'
+      - '.github/workflows/arm64.yml'
+  pull_request:
+    paths:
+      - 'core/**'
+      - '.github/workflows/arm64.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-arm64:
+    name: Linux arm64 (native)
+    runs-on: ubuntu-24.04-arm
+    defaults:
+      run:
+        working-directory: core/build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies
+        run: python3 get_dependencies.py -p linux -a arm64
+      - name: Generate
+        run: python3 build.py -p linux -a arm64 --minimal -o generate
+      - name: Build
+        run: cmake --build linux-arm64-release --parallel 4
+      - name: Test
+        working-directory: core/build/linux-arm64-release
+        run: ctest --output-on-failure
+
+  linux-arm64-cross:
+    name: Linux arm64 (cross-compiled from x64)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: core/build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cross toolchain
+        run: sudo apt-get update && sudo apt-get install -y g++-aarch64-linux-gnu qemu-user-static
+      - name: Dependencies
+        run: python3 get_dependencies.py -p linux -a arm64
+      - name: Generate
+        run: python3 build.py -p linux -a arm64 --minimal -o generate
+      - name: Build
+        run: cmake --build linux-arm64-release --parallel 4
+      - name: Test (under qemu)
+        # Same arguments and working directory as the UnitTests test registered in src/test/CMakeLists.txt.
+        working-directory: core/src/test
+        run: qemu-aarch64-static -L /usr/aarch64-linux-gnu ../../build/linux-arm64-release/src/test/phonon_test '~[ReflectionSimulator]'
+
+  windows-arm64:
+    name: Windows arm64 (native)
+    runs-on: windows-11-arm
+    defaults:
+      run:
+        working-directory: core/build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: arm64
+      - name: Dependencies
+        run: python get_dependencies.py -p windows -a arm64 -t vs2022
+      - name: Generate
+        run: python build.py -p windows -a arm64 -t vs2022 --minimal -o generate
+      - name: Build
+        run: cmake --build windows-vs2022-arm64 --config Release --parallel 4
+      - name: Test
+        working-directory: core/build/windows-vs2022-arm64
+        run: ctest -C Release --output-on-failure
+
+  linux-x64:
+    name: Linux x64 (regression)
+    # The x64 build uses -fabi-version=6 (for AVX), which fails to compile against GCC 13's libstdc++ (Ubuntu 24.04),
+    # so use Ubuntu 22.04 (GCC 11) here.
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: core/build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencies
+        # Only the required dependencies; the optional x64-only ones (e.g., Embree) take a long time to build and are
+        # disabled by --minimal anyway.
+        run: for d in flatbuffers catch zlib mysofa pffft; do python3 get_dependencies.py -p linux -a x64 --dependency $d; done
+      - name: Generate
+        run: python3 build.py -p linux -a x64 --minimal -o generate
+      - name: Build
+        run: cmake --build linux-x64-release --parallel 4
+      - name: Test
+        working-directory: core/build/linux-x64-release
+        run: ctest --output-on-failure
