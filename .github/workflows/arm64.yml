@@ -107,9 +107,47 @@ jobs:
           path: core/bin
           retention-days: 7
 
+  windows-arm64ec:
+    name: Windows ARM64EC (native)
+    runs-on: windows-11-vs2026-arm
+    defaults:
+      run:
+        working-directory: core/build
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          architecture: arm64
+      - name: Dependencies
+        run: python get_dependencies.py -p windows -a arm64ec -t vs2026
+      - name: Generate
+        run: python build.py -p windows -a arm64ec -t vs2026 --minimal -o generate
+      - name: Build
+        run: cmake --build windows-vs2026-arm64ec --config Release --parallel 4
+      - name: Test
+        working-directory: core/build/windows-vs2026-arm64ec
+        run: ctest -C Release --output-on-failure
+      - name: Check binary architecture
+        # An ARM64EC DLL has the x64 machine type, plus ARM64EC code and metadata, which dumpbin reports as "(ARM64X)".
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC\*\bin\Hostarm64\arm64\dumpbin.exe" | Select-Object -First 1
+          $dll = Get-ChildItem windows-vs2026-arm64ec -Recurse -Filter phonon.dll | Select-Object -First 1
+          $headers = & $dumpbin.FullName /headers $dll.FullName
+          $headers | Select-String "machine"
+          if (-not ($headers | Select-String "\(ARM64X\)")) { throw "phonon.dll does not contain ARM64EC code" }
+      - name: Install
+        run: cmake --install windows-vs2026-arm64ec --config Release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: install-windows-arm64ec
+          path: core/bin
+          retention-days: 7
+
   package:
-    name: Package (steamaudio zip with linux-arm64 and windows-arm64)
-    needs: [linux-arm64, windows-arm64]
+    name: Package (steamaudio zip with linux-arm64, windows-arm64 and windows-arm64ec)
+    needs: [linux-arm64, windows-arm64, windows-arm64ec]
     runs-on: ubuntu-26.04-arm
     defaults:
       run:
@@ -129,6 +167,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: install-windows-arm64
+          path: core/bin
+      - uses: actions/download-artifact@v4
+        with:
+          name: install-windows-arm64ec
           path: core/bin
       - name: Package
         run: |
