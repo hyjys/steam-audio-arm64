@@ -18,22 +18,37 @@ permissions:
 
 jobs:
   linux-arm64:
-    name: Linux arm64 (native)
+    name: Linux arm64 (native, glibc 2.28)
     runs-on: ubuntu-26.04-arm
+    # Build in an EL8 container, so that the binaries only require glibc 2.28 (the same baseline as, e.g., Unreal
+    # Engine), rather than the much newer glibc of the runner's OS.
+    container: almalinux:8
     defaults:
       run:
         working-directory: core/build
     steps:
+      - name: Install build tools
+        working-directory: /
+        run: dnf install -y gcc-c++ make cmake git python39 binutils
       - uses: actions/checkout@v5
       - name: Dependencies
-        run: python3 get_dependencies.py -p linux -a arm64
+        run: python3.9 get_dependencies.py -p linux -a arm64
       - name: Generate
-        run: python3 build.py -p linux -a arm64 --minimal -o generate
+        run: python3.9 build.py -p linux -a arm64 --minimal -o generate
       - name: Build
         run: cmake --build linux-arm64-release --parallel 4
       - name: Test
         working-directory: core/build/linux-arm64-release
         run: ctest --output-on-failure
+      - name: Check glibc requirement
+        run: |
+          versions=$(objdump -T linux-arm64-release/src/core/libphonon.so | grep -o 'GLIBC_[0-9.]*' | sort -u -V)
+          echo "$versions"
+          newest=$(echo "$versions" | tail -1 | sed 's/GLIBC_//')
+          if [ "$(printf '%s\n' "$newest" 2.28 | sort -V | tail -1)" != "2.28" ]; then
+            echo "libphonon.so requires glibc $newest, which is newer than 2.28"
+            exit 1
+          fi
       - name: Install
         run: cmake --install linux-arm64-release
       - uses: actions/upload-artifact@v4
