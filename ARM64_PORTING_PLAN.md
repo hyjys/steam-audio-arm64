@@ -206,7 +206,8 @@ Embree와 ISPC는 이번 범위에서 **제외**한다. ISPC가 `1.12 EXACT`로 
 - FMOD 플러그인 CMake를 arm64로 configure해서 Unity/Unreal 출력 경로를 확인했다(FMOD SDK가 없어서 빌드는 하지 않음).
 - Windows ARM64: clang `aarch64-pc-windows-msvc`로 플랫폼 감지와 `float4` 헤더 문법만 확인했다. `arm64ec` 타깃에서는 의도한 `#error`가 나는 것도 확인했다. **MSVC 빌드와 테스트는 CI(`windows-11-arm`)에서 확인해야 한다.**
 - Wwise: SDK가 없어서 configure도 할 수 없다. 검증하지 못했다.
-- x64 회귀 확인: **원래 `master`도 GCC 13(Ubuntu 24.04)에서 x64 빌드가 실패한다.** x64 전용 `-fabi-version=6`(AVX용 플래그)와 libstdc++ 13이 충돌하기 때문이고, 이번 변경과는 무관하다. AVX를 끄고 빌드하면 이 브랜치의 x64 빌드와 단위 테스트가 통과한다. CI의 x64 job은 ubuntu-22.04(GCC 11)를 쓰도록 했다(아직 실행해 보지 않음).
+- x64 회귀 확인: **원래 `master`도 x64 빌드가 실패한다.** x64 전용 `-fabi-version=6`(AVX용 플래그)가 GCC 11(CI의 ubuntu-22.04)과 GCC 13(로컬) 양쪽의 libstdc++와 충돌하기 때문이고, 이번 변경과는 무관하다. AVX를 끄고 빌드하면 이 브랜치의 x64 빌드와 단위 테스트가 통과한다. 그래서 CI의 x64 job은 AVX를 끄고 빌드한다.
+- CI 1차 실행: Linux arm64 네이티브(ubuntu-24.04-arm)는 통과했다. Windows arm64는 러너에 VS 2022가 없고 CMake 4.x가 cmake_minimum_required < 3.5인 의존성을 거부해서 실패했다. 그래서 `vs2026` 툴체인(`Visual Studio 18 2026`)을 추가하고 의존성 configure에 `-DCMAKE_POLICY_VERSION_MINIMUM=3.5`를 넘기도록 했다. 이 수정은 로컬 CMake 4.4로 재현하고 확인했다. 러너는 ubuntu-26.04-arm과 windows-11-vs2026-arm으로 바꿨다.
 
 ### 커밋
 
