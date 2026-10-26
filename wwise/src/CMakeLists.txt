@@ -89,8 +89,8 @@ endif()
 # BUILD
 # ---------------------------------------------------------------------------------------------------------------------
 
-# Wwise names Linux SDK directories Linux_<arch>. Windows on ARM64 is only supported by the Wwise SDK when building with
-# the vc170 (Visual Studio 2022) toolchain.
+# Wwise names Linux SDK directories Linux_<arch> (Linux_x64, Linux_aarch64). On Windows, the Wwise SDK provides a single
+# ARM64 directory rather than one per toolchain, so ARM64 is only built once, with the vc170 toolchain.
 if (IPL_CPU_ARMV8)
     set(Wwise_LINUX_ARCHITECTURE aarch64)
     set(Wwise_WINDOWS_TOOLCHAINS vc170)
@@ -98,6 +98,16 @@ else()
     set(Wwise_LINUX_ARCHITECTURE x64)
     set(Wwise_WINDOWS_TOOLCHAINS vc160 vc170)
 endif()
+
+# Wwise names Windows SDK directories <arch>_<toolchain> (e.g., x64_vc170), except for native ARM64, which uses a single
+# SDK/ARM64 directory (Wwise 2024.1 and later; ARM64EC is not provided).
+macro(wwise_windows_sdk_dir OUT ARCH TOOLCHAIN)
+    if ("${ARCH}" STREQUAL "ARM64")
+        set(${OUT} ARM64)
+    else()
+        set(${OUT} ${ARCH}_${TOOLCHAIN})
+    endif()
+endmacro()
 
 add_custom_target(phonon_wwise ALL)
 
@@ -216,11 +226,12 @@ if (IPL_OS_WINDOWS)
     # copy the vs2022 release build
     set(Wwise_TOOLCHAIN vc170)
     set(Wwise_CONFIGURATION Release)
+    wwise_windows_sdk_dir(Wwise_SDK_DIR ${Wwise_ARCHITECTURE} ${Wwise_TOOLCHAIN})
 
     add_custom_target(phonon_wwise_copy_unity_${Wwise_ARCHITECTURE} ALL
         COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNITY_WWISE_PLUGIN_DIR}/Windows/${Wwise_ARCHITECTURE_UNITY}/DSP"
-        COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION}/bin/SteamAudioWwise.dll" "${UNITY_WWISE_PLUGIN_DIR}/Windows/${Wwise_ARCHITECTURE_UNITY}/DSP"
-        COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION}/bin/SteamAudioWwise.pdb" "${UNITY_WWISE_PLUGIN_DIR}/Windows/${Wwise_ARCHITECTURE_UNITY}/DSP"
+        COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../${Wwise_SDK_DIR}/${Wwise_CONFIGURATION}/bin/SteamAudioWwise.dll" "${UNITY_WWISE_PLUGIN_DIR}/Windows/${Wwise_ARCHITECTURE_UNITY}/DSP"
+        COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../${Wwise_SDK_DIR}/${Wwise_CONFIGURATION}/bin/SteamAudioWwise.pdb" "${UNITY_WWISE_PLUGIN_DIR}/Windows/${Wwise_ARCHITECTURE_UNITY}/DSP"
         VERBATIM
     )
 
@@ -313,14 +324,15 @@ if (IPL_OS_WINDOWS)
     endif()
 
     foreach (Wwise_TOOLCHAIN IN ITEMS ${Wwise_WINDOWS_TOOLCHAINS})
+        wwise_windows_sdk_dir(Wwise_SDK_DIR ${Wwise_ARCHITECTURE} ${Wwise_TOOLCHAIN})
         foreach (Wwise_CONFIGURATION IN ITEMS Debug Profile Release)
             add_custom_target(phonon_wwise_copy_unreal_${Wwise_TOOLCHAIN}_${Wwise_CONFIGURATION}
-                COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION}/bin"
-                COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION}/lib"
-                COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION}(StaticCRT)/lib"
-                COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION}/bin/SteamAudioWwise.dll" "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION}/bin"
-                COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION}/lib/SteamAudioWwiseFX.lib" "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION}/lib"
-                COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION}(StaticCRT)/lib/SteamAudioWwiseFX.lib" "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION}(StaticCRT)/lib"
+                COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_SDK_DIR}/${Wwise_CONFIGURATION}/bin"
+                COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_SDK_DIR}/${Wwise_CONFIGURATION}/lib"
+                COMMAND     ${CMAKE_COMMAND} -E make_directory "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_SDK_DIR}/${Wwise_CONFIGURATION}(StaticCRT)/lib"
+                COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../${Wwise_SDK_DIR}/${Wwise_CONFIGURATION}/bin/SteamAudioWwise.dll" "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_SDK_DIR}/${Wwise_CONFIGURATION}/bin"
+                COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../${Wwise_SDK_DIR}/${Wwise_CONFIGURATION}/lib/SteamAudioWwiseFX.lib" "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_SDK_DIR}/${Wwise_CONFIGURATION}/lib"
+                COMMAND     ${CMAKE_COMMAND} -E copy "${Wwise_INCLUDE_DIR}/../../${Wwise_SDK_DIR}/${Wwise_CONFIGURATION}(StaticCRT)/lib/SteamAudioWwiseFX.lib" "${UNREAL_WWISE_PLUGIN_DIR}/${Wwise_SDK_DIR}/${Wwise_CONFIGURATION}(StaticCRT)/lib"
                 VERBATIM
             )
 
@@ -413,8 +425,9 @@ if (IPL_OS_WINDOWS)
     endif()
 
     foreach (Wwise_TOOLCHAIN IN ITEMS ${Wwise_WINDOWS_TOOLCHAINS})
+        wwise_windows_sdk_dir(Wwise_SDK_DIR ${Wwise_ARCHITECTURE} ${Wwise_TOOLCHAIN})
         foreach (Wwise_CONFIGURATION IN ITEMS ${Wwise_CONFIGURATIONS})
-            set(Wwise_INSTALL_SUBDIR ${Wwise_ARCHITECTURE}_${Wwise_TOOLCHAIN}/${Wwise_CONFIGURATION})
+            set(Wwise_INSTALL_SUBDIR ${Wwise_SDK_DIR}/${Wwise_CONFIGURATION})
             set(Wwise_INSTALL_SRCDIR ${Wwise_INCLUDE_DIR}/../../${Wwise_INSTALL_SUBDIR})
 
             install(
