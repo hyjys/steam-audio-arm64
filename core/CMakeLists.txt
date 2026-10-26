@@ -164,7 +164,10 @@ if (IPL_OS_LINUX)
     if (IPL_CPU_X86)
         add_compile_options(-m32 -mfpmath=sse -march=native)
     endif()
-    if (STEAMAUDIO_ENABLE_AVX)
+    # GCC versions before 5 default to an ABI version that mangles __m128 and __m256 identically, so overloads on
+    # float4_t and float8_t collide. Newer versions default to the latest ABI version, which mangles them distinctly;
+    # forcing the older ABI version 6 there breaks compilation against their libstdc++.
+    if (STEAMAUDIO_ENABLE_AVX AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5)
         add_compile_options(-fabi-version=6)
     endif()
 endif()

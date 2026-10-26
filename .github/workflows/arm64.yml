@@ -140,11 +140,7 @@ jobs:
         # disabled by --minimal anyway.
         run: for d in flatbuffers catch zlib mysofa pffft; do python3 get_dependencies.py -p linux -a x64 --dependency $d; done
       - name: Generate
-        # With AVX enabled, the x64 build adds -fabi-version=6, which fails to compile against the libstdc++ of current
-        # GCC versions (11 and later; this also happens on master). Disable AVX so the rest of the build is still checked.
-        run: |
-          python3 build.py -p linux -a x64 --minimal -o generate
-          cmake -DSTEAMAUDIO_ENABLE_AVX=OFF linux-x64-release
+        run: python3 build.py -p linux -a x64 --minimal -o generate
       - name: Build
         run: cmake --build linux-x64-release --parallel 4
       - name: Test
