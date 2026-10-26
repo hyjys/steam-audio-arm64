@@ -21,9 +21,11 @@ find_path(FlatBuffers_INCLUDE_DIR
 	PATHS 			${CMAKE_HOME_DIRECTORY}/deps/flatbuffers/include
 )
 
+# Windows on ARM can run an x64 flatc under emulation, so fall back to it if there is no native build.
 find_program(FlatBuffers_EXECUTABLE
 	NAMES	flatc
 	PATHS 	${CMAKE_HOME_DIRECTORY}/deps/flatbuffers/bin/${IPL_BIN_SUBDIR}
+			${CMAKE_HOME_DIRECTORY}/deps/flatbuffers/bin/windows-x64
 )
 
 if (FlatBuffers_INCLUDE_DIR)

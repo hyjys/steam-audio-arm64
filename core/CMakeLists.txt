@@ -43,7 +43,9 @@ endif()
 
 # CPU architecture detection
 if (IPL_OS_WINDOWS)
-    if (CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
+    # Visual Studio generators report the target via -A ARM64; Ninja/NMake builds from an ARM64 developer prompt
+    # only report it via the compiler's architecture ID.
+    if (CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64" OR CMAKE_CXX_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64")
         set(IPL_CPU_ARMV8 TRUE)
     elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(IPL_CPU_X64 TRUE)
@@ -51,7 +53,7 @@ if (IPL_OS_WINDOWS)
         set(IPL_CPU_X86 TRUE)
     endif()
 elseif (IPL_OS_LINUX)
-    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
         set(IPL_CPU_ARMV8 TRUE)
     elseif (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set(IPL_CPU_X64 TRUE)
@@ -404,8 +406,10 @@ set(CPACK_INSTALLED_DIRECTORIES
     ${CMAKE_INSTALL_PREFIX}/include include
     ${CMAKE_INSTALL_PREFIX}/lib/windows-x86 lib/windows-x86
     ${CMAKE_INSTALL_PREFIX}/lib/windows-x64 lib/windows-x64
+    ${CMAKE_INSTALL_PREFIX}/lib/windows-arm64 lib/windows-arm64
     ${CMAKE_INSTALL_PREFIX}/lib/linux-x86 lib/linux-x86
     ${CMAKE_INSTALL_PREFIX}/lib/linux-x64 lib/linux-x64
+    ${CMAKE_INSTALL_PREFIX}/lib/linux-arm64 lib/linux-arm64
     ${CMAKE_INSTALL_PREFIX}/lib/osx lib/osx
     ${CMAKE_INSTALL_PREFIX}/lib/android-armv7 lib/android-armv7
     ${CMAKE_INSTALL_PREFIX}/lib/android-armv8 lib/android-armv8
@@ -416,8 +420,10 @@ set(CPACK_INSTALLED_DIRECTORIES
     ${CMAKE_INSTALL_PREFIX}/doc doc
     ${CMAKE_INSTALL_PREFIX}/symbols/windows-x86 symbols/windows-x86
     ${CMAKE_INSTALL_PREFIX}/symbols/windows-x64 symbols/windows-x64
+    ${CMAKE_INSTALL_PREFIX}/symbols/windows-arm64 symbols/windows-arm64
     ${CMAKE_INSTALL_PREFIX}/symbols/linux-x86 symbols/linux-x86
     ${CMAKE_INSTALL_PREFIX}/symbols/linux-x64 symbols/linux-x64
+    ${CMAKE_INSTALL_PREFIX}/symbols/linux-arm64 symbols/linux-arm64
     ${CMAKE_INSTALL_PREFIX}/root .
 )
 
