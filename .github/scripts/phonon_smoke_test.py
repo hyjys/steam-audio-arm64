@@ -6,6 +6,7 @@ import platform
 import re
 import struct
 import sys
+import sysconfig
 
 dll_path, cmake_lists_path = sys.argv[1], sys.argv[2]
 
@@ -23,7 +24,9 @@ class IPLHRTFSettings(ctypes.Structure):
     _fields_ = [("type", ctypes.c_int), ("sofaFileName", ctypes.c_char_p), ("sofaData", ctypes.c_void_p),
                 ("sofaDataSize", ctypes.c_int), ("volume", ctypes.c_float), ("normType", ctypes.c_int)]
 
-print(f"Python {platform.python_version()}, {platform.machine()}, {struct.calcsize('P') * 8}-bit")
+# sysconfig.get_platform() reports the interpreter's own architecture (win-arm64 or win-amd64), whereas
+# platform.machine() reports the machine's native architecture, even in an emulated x64 process.
+print(f"Python {platform.python_version()}, {sysconfig.get_platform()} process on {platform.machine()}, {struct.calcsize('P') * 8}-bit")
 
 phonon = ctypes.WinDLL(dll_path)
 
