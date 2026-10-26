@@ -83,11 +83,21 @@ if (STEAMAUDIO_ENABLE_EMBREE)
     set(ISPC_OBJECT_SSE4    ${CMAKE_CURRENT_BINARY_DIR}/ispckernels_sse4.${ISPC_OBJECT_EXTENSION})
     set(ISPC_OBJECT_AVX     ${CMAKE_CURRENT_BINARY_DIR}/ispckernels_avx.${ISPC_OBJECT_EXTENSION})
     set(ISPC_OBJECT_AVX2    ${CMAKE_CURRENT_BINARY_DIR}/ispckernels_avx2.${ISPC_OBJECT_EXTENSION})
-    set(ISPC_OUTPUTS        ${ISPC_HEADER} ${ISPC_OBJECT} ${ISPC_OBJECT_SSE2} ${ISPC_OBJECT_SSE4} ${ISPC_OBJECT_AVX} ${ISPC_OBJECT_AVX2})
 
     set(ISPC_FLAGS          -I ${CMAKE_HOME_DIRECTORY}/deps/embree/include -g)
-    set(ISPC_FLAGS_HEADER   --target=avx2-i32x8)
-    set(ISPC_FLAGS_OBJECT   --target=sse2-i32x4,sse4-i32x4,avx1-i32x8,avx2-i32x8)
+
+    if (IPL_CPU_ARMV8)
+        # With a single target, ISPC generates a single object file, with no runtime dispatch.
+        set(ISPC_OBJECTS        ${ISPC_OBJECT})
+        set(ISPC_FLAGS_HEADER   --target=neon-i32x4)
+        set(ISPC_FLAGS_OBJECT   --target=neon-i32x4)
+    else()
+        set(ISPC_OBJECTS        ${ISPC_OBJECT} ${ISPC_OBJECT_SSE2} ${ISPC_OBJECT_SSE4} ${ISPC_OBJECT_AVX} ${ISPC_OBJECT_AVX2})
+        set(ISPC_FLAGS_HEADER   --target=avx2-i32x8)
+        set(ISPC_FLAGS_OBJECT   --target=sse2-i32x4,sse4-i32x4,avx1-i32x8,avx2-i32x8)
+    endif()
+
+    set(ISPC_OUTPUTS        ${ISPC_HEADER} ${ISPC_OBJECTS})
 
     if (NOT IPL_OS_WINDOWS)
         list(APPEND ISPC_FLAGS --pic)
@@ -95,6 +105,8 @@ if (STEAMAUDIO_ENABLE_EMBREE)
 
     if (IPL_CPU_X86)
         list(APPEND ISPC_FLAGS --arch=x86)
+    elseif (IPL_CPU_ARMV8)
+        list(APPEND ISPC_FLAGS --arch=aarch64)
     endif()
 
     add_custom_command(
@@ -116,7 +128,7 @@ if (STEAMAUDIO_ENABLE_EMBREE)
     # https://gitlab.kitware.com/cmake/cmake/-/issues/18399
     add_library(ispckernels STATIC ${ISPC_OUTPUTS} pch.cpp)
     set_source_files_properties(${ISPC_OUTPUTS} PROPERTIES GENERATED TRUE)
-    set_source_files_properties(${ISPC_OBJECT} ${ISPC_OBJECT_SSE2} ${ISPC_OBJECT_SSE4} ${ISPC_OBJECT_AVX} ${ISPC_OBJECT_AVX2} PROPERTIES EXTERNAL_OBJECT TRUE)
+    set_source_files_properties(${ISPC_OBJECTS} PROPERTIES EXTERNAL_OBJECT TRUE)
     set_target_properties(ispckernels PROPERTIES LINKER_LANGUAGE CXX)
 endif()
 

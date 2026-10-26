@@ -190,6 +190,9 @@ def stamp_check(name, platform, fetch_params, configure_params=None):
 def substitute_placeholders_in_string(string, name, platform, cmake, vs_version, debug):
     result = string
 
+    # $host_platform -> name of the host platform (e.g., to locate tool dependencies when cross-compiling)
+    result = result.replace('$host_platform', host_platform)
+
     # $platform -> name of the platform
     result = result.replace('$platform', platform)
 
