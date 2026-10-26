@@ -83,76 +83,66 @@ jobs:
         working-directory: core/src/test
         run: qemu-aarch64-static -L /usr/aarch64-linux-gnu ../../build/linux-arm64-release/src/test/phonon_test '~[ReflectionSimulator]'
 
-  windows-arm64:
-    name: Windows arm64 (native)
+  windows-arm64x:
+    name: Windows ARM64X (ARM64 + ARM64EC, native)
     runs-on: windows-11-vs2026-arm
     defaults:
       run:
         working-directory: core/build
     steps:
       - uses: actions/checkout@v5
+      # An x64 Python (which runs under emulation) to check that the ARM64X DLL can be loaded into x64 processes.
       - uses: actions/setup-python@v6
+        id: python-x64
+        with:
+          python-version: '3.12'
+          architecture: x64
+      # Set up last, so that it is the default python.
+      - uses: actions/setup-python@v6
+        id: python-arm64
         with:
           python-version: '3.12'
           architecture: arm64
       - name: Dependencies
-        run: python get_dependencies.py -p windows -a arm64 -t vs2026
-      - name: Generate
-        run: python build.py -p windows -a arm64 -t vs2026 --minimal -o generate
-      - name: Build
-        run: cmake --build windows-vs2026-arm64 --config Release --parallel 4
-      - name: Test
-        working-directory: core/build/windows-vs2026-arm64
+        # Builds the dependencies for both windows-arm64 and windows-arm64ec.
+        run: python get_dependencies.py -p windows -a arm64x -t vs2026
+      - name: Generate and build
+        # Generates and builds the ARM64 pass, then generates the ARM64EC pass, which links in the ARM64 pass's outputs.
+        run: |
+          python build.py -p windows -a arm64x -t vs2026 --minimal -o generate
+          python build.py -p windows -a arm64x -t vs2026 --minimal -o build --parallel 4
+      - name: Test (ARM64 pass)
+        working-directory: core/build/windows-vs2026-arm64x-arm64
         run: ctest -C Release --output-on-failure
-      - name: Install
-        run: cmake --install windows-vs2026-arm64 --config Release
-      - uses: actions/upload-artifact@v4
-        with:
-          name: install-windows-arm64
-          path: core/bin
-          retention-days: 7
-
-  windows-arm64ec:
-    name: Windows ARM64EC (native)
-    runs-on: windows-11-vs2026-arm
-    defaults:
-      run:
-        working-directory: core/build
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-          architecture: arm64
-      - name: Dependencies
-        run: python get_dependencies.py -p windows -a arm64ec -t vs2026
-      - name: Generate
-        run: python build.py -p windows -a arm64ec -t vs2026 --minimal -o generate
-      - name: Build
-        run: cmake --build windows-vs2026-arm64ec --config Release --parallel 4
-      - name: Test
-        working-directory: core/build/windows-vs2026-arm64ec
+      - name: Test (ARM64EC pass)
+        working-directory: core/build/windows-vs2026-arm64x
         run: ctest -C Release --output-on-failure
       - name: Check binary architecture
-        # An ARM64EC DLL has the x64 machine type, plus ARM64EC code and metadata, which dumpbin reports as "(ARM64X)".
+        # An ARM64X DLL has the ARM64 machine type, plus ARM64EC code and metadata, which dumpbin reports as "(ARM64X)".
         run: |
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
           $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC\*\bin\Hostarm64\arm64\dumpbin.exe" | Select-Object -First 1
-          $dll = Get-ChildItem windows-vs2026-arm64ec -Recurse -Filter phonon.dll | Select-Object -First 1
+          $dll = Get-ChildItem windows-vs2026-arm64x -Recurse -Filter phonon.dll | Select-Object -First 1
           $headers = & $dumpbin.FullName /headers $dll.FullName
           $headers | Select-String "machine"
-          if (-not ($headers | Select-String "\(ARM64X\)")) { throw "phonon.dll does not contain ARM64EC code" }
+          if (-not (($headers | Select-String "AA64 machine") -and ($headers | Select-String "\(ARM64X\)"))) { throw "phonon.dll is not an ARM64X DLL" }
       - name: Install
-        run: cmake --install windows-vs2026-arm64ec --config Release
+        run: cmake --install windows-vs2026-arm64x --config Release
+      - name: Load the ARM64X DLL into ARM64 and x64 processes
+        run: |
+          & "${{ steps.python-arm64.outputs.python-path }}" ..\..\.github\scripts\phonon_smoke_test.py ..\bin\lib\windows-arm64\phonon.dll ..\CMakeLists.txt
+          if ($LASTEXITCODE -ne 0) { throw "ARM64 process failed" }
+          & "${{ steps.python-x64.outputs.python-path }}" ..\..\.github\scripts\phonon_smoke_test.py ..\bin\lib\windows-arm64\phonon.dll ..\CMakeLists.txt
+          if ($LASTEXITCODE -ne 0) { throw "x64 process failed" }
       - uses: actions/upload-artifact@v4
         with:
-          name: install-windows-arm64ec
+          name: install-windows-arm64x
           path: core/bin
           retention-days: 7
 
   package:
-    name: Package (steamaudio zip with linux-arm64, windows-arm64 and windows-arm64ec)
-    needs: [linux-arm64, windows-arm64, windows-arm64ec]
+    name: Package (steamaudio zip with linux-arm64 and windows-arm64 (ARM64X))
+    needs: [linux-arm64, windows-arm64x]
     runs-on: ubuntu-26.04-arm
     defaults:
       run:
@@ -171,11 +161,7 @@ jobs:
           path: core/bin
       - uses: actions/download-artifact@v4
         with:
-          name: install-windows-arm64
-          path: core/bin
-      - uses: actions/download-artifact@v4
-        with:
-          name: install-windows-arm64ec
+          name: install-windows-arm64x
           path: core/bin
       - name: Package
         run: |
