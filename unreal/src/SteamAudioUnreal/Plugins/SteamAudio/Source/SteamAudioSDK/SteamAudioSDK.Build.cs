@@ -35,7 +35,23 @@ public class SteamAudioSDK : ModuleRules
             RuntimeDependencies.Add("$(PluginDir)/Source/SteamAudioSDK/lib/windows-x86/phonon.dll");
         }
 #endif
-        if (Target.Platform == UnrealTargetPlatform.Win64)
+#if UE_5_2_OR_LATER
+        // Native Windows on ARM64 builds use the arm64 SDK binaries. (ARM64EC builds can load x64 DLLs, so they use the
+        // x64 SDK binaries.)
+        bool bIsWindowsArm64 = (Target.Platform == UnrealTargetPlatform.Win64 && Target.Architecture == UnrealArch.Arm64);
+#else
+        bool bIsWindowsArm64 = false;
+#endif
+        if (Target.Platform == UnrealTargetPlatform.Win64 && bIsWindowsArm64)
+        {
+            // GPU acceleration (TrueAudio Next) is not available on arm64.
+            PublicAdditionalLibraries.Add("$(PluginDir)/Source/SteamAudioSDK/lib/windows-arm64/phonon.lib");
+
+            PublicDelayLoadDLLs.Add("phonon.dll");
+
+            RuntimeDependencies.Add("$(PluginDir)/Source/SteamAudioSDK/lib/windows-arm64/phonon.dll");
+        }
+        if (Target.Platform == UnrealTargetPlatform.Win64 && !bIsWindowsArm64)
         {
             PublicAdditionalLibraries.Add("$(PluginDir)/Source/SteamAudioSDK/lib/windows-x64/phonon.lib");
 
@@ -54,6 +70,18 @@ public class SteamAudioSDK : ModuleRules
             PublicDelayLoadDLLs.Add("$(PluginDir)/Source/SteamAudioSDK/lib/linux-x64/libphonon.so");
 
             RuntimeDependencies.Add("$(PluginDir)/Source/SteamAudioSDK/lib/linux-x64/libphonon.so");
+        }
+#if UE_5_0_OR_LATER
+        if (Target.Platform == UnrealTargetPlatform.LinuxArm64)
+#else
+        if (Target.Platform == UnrealTargetPlatform.LinuxAArch64)
+#endif
+        {
+            PublicAdditionalLibraries.Add("$(PluginDir)/Source/SteamAudioSDK/lib/linux-arm64/libphonon.so");
+
+            PublicDelayLoadDLLs.Add("$(PluginDir)/Source/SteamAudioSDK/lib/linux-arm64/libphonon.so");
+
+            RuntimeDependencies.Add("$(PluginDir)/Source/SteamAudioSDK/lib/linux-arm64/libphonon.so");
         }
         if (Target.Platform == UnrealTargetPlatform.Mac)
         {
