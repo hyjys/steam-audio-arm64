@@ -1,0 +1,152 @@
+# Builds the Steam Audio SDK (core) and runs its unit tests on arm64 Linux and Windows, plus an x64 Linux build to
+# catch regressions in the shared build scripts.
+name: arm64
+
+on:
+  push:
+    paths:
+      - 'core/**'
+      - '.github/workflows/arm64.yml'
+  pull_request:
+    paths:
+      - 'core/**'
+      - '.github/workflows/arm64.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-arm64:
+    name: Linux arm64 (native)
+    runs-on: ubuntu-26.04-arm
+    defaults:
+      run:
+        working-directory: core/build
+    steps:
+      - uses: actions/checkout@v5
+      - name: Dependencies
+        run: python3 get_dependencies.py -p linux -a arm64
+      - name: Generate
+        run: python3 build.py -p linux -a arm64 --minimal -o generate
+      - name: Build
+        run: cmake --build linux-arm64-release --parallel 4
+      - name: Test
+        working-directory: core/build/linux-arm64-release
+        run: ctest --output-on-failure
+      - name: Install
+        run: cmake --install linux-arm64-release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: install-linux-arm64
+          path: core/bin
+          retention-days: 7
+
+  linux-arm64-cross:
+    name: Linux arm64 (cross-compiled from x64)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core/build
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install cross toolchain
+        run: sudo apt-get update && sudo apt-get install -y g++-aarch64-linux-gnu qemu-user-static
+      - name: Dependencies
+        run: python3 get_dependencies.py -p linux -a arm64
+      - name: Generate
+        run: python3 build.py -p linux -a arm64 --minimal -o generate
+      - name: Build
+        run: cmake --build linux-arm64-release --parallel 4
+      - name: Test (under qemu)
+        # Same arguments and working directory as the UnitTests test registered in src/test/CMakeLists.txt.
+        working-directory: core/src/test
+        run: qemu-aarch64-static -L /usr/aarch64-linux-gnu ../../build/linux-arm64-release/src/test/phonon_test '~[ReflectionSimulator]'
+
+  windows-arm64:
+    name: Windows arm64 (native)
+    runs-on: windows-11-vs2026-arm
+    defaults:
+      run:
+        working-directory: core/build
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          architecture: arm64
+      - name: Dependencies
+        run: python get_dependencies.py -p windows -a arm64 -t vs2026
+      - name: Generate
+        run: python build.py -p windows -a arm64 -t vs2026 --minimal -o generate
+      - name: Build
+        run: cmake --build windows-vs2026-arm64 --config Release --parallel 4
+      - name: Test
+        working-directory: core/build/windows-vs2026-arm64
+        run: ctest -C Release --output-on-failure
+      - name: Install
+        run: cmake --install windows-vs2026-arm64 --config Release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: install-windows-arm64
+          path: core/bin
+          retention-days: 7
+
+  package:
+    name: Package (steamaudio zip with linux-arm64 and windows-arm64)
+    needs: [linux-arm64, windows-arm64]
+    runs-on: ubuntu-26.04-arm
+    defaults:
+      run:
+        working-directory: core/build
+    steps:
+      - uses: actions/checkout@v5
+      # The package is created by CPack from the installed files of each platform, merged under core/bin, the same way
+      # as for a regular Steam Audio release. Generating a build system (no build needed) provides the CPack config.
+      - name: Dependencies
+        run: python3 get_dependencies.py -p linux -a arm64
+      - name: Generate
+        run: python3 build.py -p linux -a arm64 --minimal -o generate
+      - uses: actions/download-artifact@v4
+        with:
+          name: install-linux-arm64
+          path: core/bin
+      - uses: actions/download-artifact@v4
+        with:
+          name: install-windows-arm64
+          path: core/bin
+      - name: Package
+        run: |
+          python3 build.py -p linux -a arm64 -o package
+          version=$(sed -n 's/^project(Phonon VERSION \([0-9.]*\))$/\1/p' ../CMakeLists.txt)
+          mv ../dist/steamaudio.zip ../dist/steamaudio_${version}_arm64.zip
+          unzip -l ../dist/steamaudio_${version}_arm64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: steamaudio-arm64
+          path: core/dist/steamaudio_*_arm64.zip
+          if-no-files-found: error
+
+  linux-x64:
+    name: Linux x64 (regression)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core/build
+    steps:
+      - uses: actions/checkout@v5
+      - name: Dependencies
+        # Only the required dependencies; the optional x64-only ones (e.g., Embree) take a long time to build and are
+        # disabled by --minimal anyway.
+        run: for d in flatbuffers catch zlib mysofa pffft; do python3 get_dependencies.py -p linux -a x64 --dependency $d; done
+      - name: Generate
+        # With AVX enabled, the x64 build adds -fabi-version=6, which fails to compile against the libstdc++ of current
+        # GCC versions (11 and later; this also happens on master). Disable AVX so the rest of the build is still checked.
+        run: |
+          python3 build.py -p linux -a x64 --minimal -o generate
+          cmake -DSTEAMAUDIO_ENABLE_AVX=OFF linux-x64-release
+      - name: Build
+        run: cmake --build linux-x64-release --parallel 4
+      - name: Test
+        working-directory: core/build/linux-x64-release
+        run: ctest --output-on-failure

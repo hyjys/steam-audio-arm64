@@ -1,0 +1,19 @@
+diff --git a/simd/pf_neon_float.h b/simd/pf_neon_float.h
+index c7a547f..3d90e0d 100644
+--- a/simd/pf_neon_float.h
++++ b/simd/pf_neon_float.h
+@@ -36,7 +36,13 @@
+ /*
+   ARM NEON support macros
+ */
+-#if !defined(PFFFT_SIMD_DISABLE) && defined(PFFFT_ENABLE_NEON) && (defined(__arm__) || defined(__aarch64__) || defined(__arm64__))
++
++/* MSVC targeting ARM64 defines neither __aarch64__ nor __arm64__, and NEON is always available there. */
++#if defined(_MSC_VER) && defined(_M_ARM64) && !defined(PFFFT_ENABLE_NEON)
++#  define PFFFT_ENABLE_NEON 1
++#endif
++
++#if !defined(PFFFT_SIMD_DISABLE) && defined(PFFFT_ENABLE_NEON) && (defined(__arm__) || defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64))
+ #pragma message( __FILE__ ": ARM NEON macros are defined" )
+ 
+ #  include <arm_neon.h>

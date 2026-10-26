@@ -19,7 +19,7 @@ import shutil
 import urllib.request, urllib.error, urllib.parse
 import zipfile
 
-version = "4.8.1"
+version = "4.9.0"
 
 def download_file(url):
     remote_file = urllib.request.urlopen(url)
@@ -72,6 +72,16 @@ shutil.copy("steamaudio/lib/android-x86/libphonon.so", "src/SteamAudioUnreal/Plu
 
 shutil.copy("steamaudio/lib/windows-x64/TrueAudioNext.dll", "src/SteamAudioUnreal/Plugins/SteamAudio/Source/SteamAudioSDK/lib/windows-x64")
 shutil.copy("steamaudio/lib/windows-x64/GPUUtilities.dll", "src/SteamAudioUnreal/Plugins/SteamAudio/Source/SteamAudioSDK/lib/windows-x64")
+
+# arm64 binaries are only present in release packages that include them.
+if os.path.exists("steamaudio/lib/windows-arm64/phonon.dll"):
+    if not os.path.exists("src/SteamAudioUnreal/Plugins/SteamAudio/Source/SteamAudioSDK/lib/windows-arm64"):
+        os.makedirs("src/SteamAudioUnreal/Plugins/SteamAudio/Source/SteamAudioSDK/lib/windows-arm64")
+    shutil.copy("steamaudio/lib/windows-arm64/phonon.dll", "src/SteamAudioUnreal/Plugins/SteamAudio/Source/SteamAudioSDK/lib/windows-arm64")
+if os.path.exists("steamaudio/lib/linux-arm64/libphonon.so"):
+    if not os.path.exists("src/SteamAudioUnreal/Plugins/SteamAudio/Source/SteamAudioSDK/lib/linux-arm64"):
+        os.makedirs("src/SteamAudioUnreal/Plugins/SteamAudio/Source/SteamAudioSDK/lib/linux-arm64")
+    shutil.copy("steamaudio/lib/linux-arm64/libphonon.so", "src/SteamAudioUnreal/Plugins/SteamAudio/Source/SteamAudioSDK/lib/linux-arm64")
 
 print("Cleaning up...")
 shutil.rmtree("steamaudio")
