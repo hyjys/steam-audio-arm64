@@ -83,6 +83,25 @@ elseif (IPL_OS_WASM)
     set(IPL_CPU_ARMV7 TRUE)
 endif()
 
+# Windows ARM64X builds (see build/SteamAudioArm64X.cmake) are done in two passes, an ARM64 pass and an ARM64EC pass.
+# The ARM64EC pass produces the final ARM64X binaries, which are used wherever ARM64 binaries are used, since they can
+# be loaded into ARM64 processes as well as x64 and ARM64EC processes.
+set(STEAMAUDIO_BUILD_AS_ARM64X "" CACHE STRING "Pass of a Windows ARM64X build (ARM64 or ARM64EC), if any.")
+set(STEAMAUDIO_ARM64X_LINK_DIR "" CACHE PATH "Directory in which the ARM64 pass of an ARM64X build stores the paths of its linker inputs.")
+if (STEAMAUDIO_BUILD_AS_ARM64X)
+    if (NOT (IPL_OS_WINDOWS AND IPL_CPU_ARMV8))
+        message(FATAL_ERROR "ARM64X builds require targeting Windows ARM64 or ARM64EC.")
+    endif()
+    if (NOT STEAMAUDIO_ARM64X_LINK_DIR)
+        message(FATAL_ERROR "ARM64X builds require STEAMAUDIO_ARM64X_LINK_DIR.")
+    endif()
+    if (STEAMAUDIO_BUILD_AS_ARM64X STREQUAL "ARM64EC" AND IPL_CPU_ARM64EC)
+        set(IPL_CPU_ARM64X TRUE)
+    elseif (NOT (STEAMAUDIO_BUILD_AS_ARM64X STREQUAL "ARM64" AND NOT IPL_CPU_ARM64EC))
+        message(FATAL_ERROR "STEAMAUDIO_BUILD_AS_ARM64X must be ARM64 for an ARM64 build, or ARM64EC for an ARM64EC build.")
+    endif()
+endif()
+
 
 #
 # OPTIONS
@@ -425,7 +444,6 @@ set(CPACK_INSTALLED_DIRECTORIES
     ${CMAKE_INSTALL_PREFIX}/lib/windows-x86 lib/windows-x86
     ${CMAKE_INSTALL_PREFIX}/lib/windows-x64 lib/windows-x64
     ${CMAKE_INSTALL_PREFIX}/lib/windows-arm64 lib/windows-arm64
-    ${CMAKE_INSTALL_PREFIX}/lib/windows-arm64ec lib/windows-arm64ec
     ${CMAKE_INSTALL_PREFIX}/lib/linux-x86 lib/linux-x86
     ${CMAKE_INSTALL_PREFIX}/lib/linux-x64 lib/linux-x64
     ${CMAKE_INSTALL_PREFIX}/lib/linux-arm64 lib/linux-arm64
@@ -440,7 +458,6 @@ set(CPACK_INSTALLED_DIRECTORIES
     ${CMAKE_INSTALL_PREFIX}/symbols/windows-x86 symbols/windows-x86
     ${CMAKE_INSTALL_PREFIX}/symbols/windows-x64 symbols/windows-x64
     ${CMAKE_INSTALL_PREFIX}/symbols/windows-arm64 symbols/windows-arm64
-    ${CMAKE_INSTALL_PREFIX}/symbols/windows-arm64ec symbols/windows-arm64ec
     ${CMAKE_INSTALL_PREFIX}/symbols/linux-x86 symbols/linux-x86
     ${CMAKE_INSTALL_PREFIX}/symbols/linux-x64 symbols/linux-x64
     ${CMAKE_INSTALL_PREFIX}/symbols/linux-arm64 symbols/linux-arm64

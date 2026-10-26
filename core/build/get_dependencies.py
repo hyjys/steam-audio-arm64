@@ -817,7 +817,7 @@ print('Host platform:', host_platform)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-p', '--platform', help = "Target operating system.", choices = ['windows', 'osx', 'linux', 'android', 'ios', 'wasm'], type = str.lower, default = host_os)
-parser.add_argument('-a', '--architecture', help = "CPU architecture.", choices = ['x86', 'x64', 'armv7', 'arm64', 'arm64ec'], type = str.lower, default = 'x64')
+parser.add_argument('-a', '--architecture', help = "CPU architecture.", choices = ['x86', 'x64', 'armv7', 'arm64', 'arm64ec', 'arm64x'], type = str.lower, default = 'x64')
 parser.add_argument('-t', '--toolchain', help = "Compiler toolchain. (Windows only)", choices = ['vs2013', 'vs2015', 'vs2017', 'vs2019', 'vs2022', 'vs2026'], type = str.lower, default = 'vs2019')
 parser.add_argument('--ndk', help = "Path to the Android NDK. (Android only)", default = os.getenv('ANDROID_NDK'))
 parser.add_argument('--emsdk', help = "Path to the Emscripten SDK. (WebAssembly only)", default = os.getenv('EMSDK'))
@@ -838,6 +838,13 @@ else:
     target_platform = '-'.join([args.platform, args.architecture])
 
 print('Target platform:', target_platform)
+
+# Windows ARM64X builds (see build.py) are made from an ARM64 build and an ARM64EC build, so they need the dependencies
+# for both.
+if target_platform == 'windows-arm64x':
+    target_platforms = ['windows-arm64', 'windows-arm64ec']
+else:
+    target_platforms = [target_platform]
 
 vs_version = int(args.toolchain.replace('vs', '', 1))
 print('Visual Studio version:', vs_version)
@@ -899,58 +906,59 @@ failed_optional = {}
 
 ordered_dep_names = toposort(json_data)
 
-for name in ordered_dep_names:
-    # skip if we've explicitly requested a dependency on the command line, and this is not it
-    if args.dependency is not None and name != args.dependency:
-        continue
+for target_platform in target_platforms:
+    for name in ordered_dep_names:
+        # skip if we've explicitly requested a dependency on the command line, and this is not it
+        if args.dependency is not None and name != args.dependency:
+            continue
 
-    dep = json_data[name]
+        dep = json_data[name]
 
-    # skip if this is not a tool dependency, and we have passed --toolsonly on the command line
-    if args.toolsonly and not dep.get('tool', False):
-        continue
-    elif args.libsonly and dep.get('tool', False):
-        continue
+        # skip if this is not a tool dependency, and we have passed --toolsonly on the command line
+        if args.toolsonly and not dep.get('tool', False):
+            continue
+        elif args.libsonly and dep.get('tool', False):
+            continue
 
-    # skip if this dependency is marked "extra" and we haven't passed --extra on the command line
-    if dep.get('type', 'optional') == 'extra' and not args.extra:
-        continue
+        # skip if this dependency is marked "extra" and we haven't passed --extra on the command line
+        if dep.get('type', 'optional') == 'extra' and not args.extra:
+            continue
 
-    # check if we should skip it based on platform
-    if not filter_dependency(dep, target_platform):
-        continue
+        # check if we should skip it based on platform
+        if not filter_dependency(dep, target_platform):
+            continue
 
-    print('\nProcessing dependency:', name)
+        print('\nProcessing dependency:', name)
 
-    platform = filter_get_platform(dep, host_platform, target_platform)
+        platform = filter_get_platform(dep, host_platform, target_platform)
 
-    debug = None if dep.get('tool', False) else args.debug
+        debug = None if dep.get('tool', False) else args.debug
 
-    dep = substitute_placeholders(dep, name, platform, cmake, vs_version, debug)
+        dep = substitute_placeholders(dep, name, platform, cmake, vs_version, debug)
 
-    # check if already satisfied
-    if check_dependency(name, dep, platform, debug):
-        continue
+        # check if already satisfied
+        if check_dependency(name, dep, platform, debug):
+            continue
 
-    start_dir = os.getcwd()
+        start_dir = os.getcwd()
 
-    try:
-        fetch_dependency(name, dep, platform)
-        configure_dependency(name, dep, platform, cmake, vs_version, args.ndk, args.emsdk, debug, args.sharedcrt)
-        build_dependency(name, dep, platform, cmake, vs_version, args.ndk, debug)
-        install_dependency(name, dep, platform, cmake, debug)
-        copy_dependency(name, dep, platform)
-    except Exception as e:
-        print(e)
-        if dep.get('type', 'optional') == 'required':
-            failed_required[name] = e
+        try:
+            fetch_dependency(name, dep, platform)
+            configure_dependency(name, dep, platform, cmake, vs_version, args.ndk, args.emsdk, debug, args.sharedcrt)
+            build_dependency(name, dep, platform, cmake, vs_version, args.ndk, debug)
+            install_dependency(name, dep, platform, cmake, debug)
+            copy_dependency(name, dep, platform)
+        except Exception as e:
+            print(e)
+            if dep.get('type', 'optional') == 'required':
+                failed_required[name] = e
+            else:
+                failed_optional[name] = e
+            continue
         else:
-            failed_optional[name] = e
-        continue
-    else:
-        succeeded += [name]
-    finally:
-        os.chdir(start_dir)
+            succeeded += [name]
+        finally:
+            os.chdir(start_dir)
 
 print('\n\nSUMMARY\n')
 print('The following dependencies were successfully added or updated:\n')

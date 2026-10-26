@@ -674,6 +674,9 @@ endif()
 
 target_link_libraries(phonon PRIVATE core hrtf)
 
+include(SteamAudioArm64X)
+steamaudio_add_arm64x_target(phonon)
+
 if (IPL_OS_MACOS)
     add_library(phonon_bundle MODULE pch.cpp)
     set_target_properties(phonon_bundle PROPERTIES BUNDLE TRUE)
@@ -719,8 +722,8 @@ if (IPL_OS_WINDOWS)
         set(FMOD_LIB_DIR ${CMAKE_HOME_DIRECTORY}/../fmod/lib/windows-x86)
     elseif (IPL_CPU_X64)
         set(FMOD_LIB_DIR ${CMAKE_HOME_DIRECTORY}/../fmod/lib/windows-x64)
-    elseif (IPL_CPU_ARM64EC)
-        # FMOD and Unity don't support ARM64EC.
+    elseif (IPL_CPU_ARM64EC AND NOT IPL_CPU_ARM64X)
+        # Standalone ARM64EC builds aren't used by the integrations. (ARM64X builds are used like ARM64 builds.)
     elseif (IPL_CPU_ARMV8)
         set(FMOD_LIB_DIR ${CMAKE_HOME_DIRECTORY}/../fmod/lib/windows-arm64)
     endif()
@@ -817,8 +820,8 @@ if (IPL_OS_WINDOWS)
         set(UNITY_LIB_DIR ${CMAKE_HOME_DIRECTORY}/../unity/lib/windows-x86)
     elseif (IPL_CPU_X64)
         set(UNITY_LIB_DIR ${CMAKE_HOME_DIRECTORY}/../unity/lib/windows-x64)
-    elseif (IPL_CPU_ARM64EC)
-        # FMOD and Unity don't support ARM64EC.
+    elseif (IPL_CPU_ARM64EC AND NOT IPL_CPU_ARM64X)
+        # Standalone ARM64EC builds aren't used by the integrations. (ARM64X builds are used like ARM64 builds.)
     elseif (IPL_CPU_ARMV8)
         set(UNITY_LIB_DIR ${CMAKE_HOME_DIRECTORY}/../unity/lib/windows-arm64)
     endif()
@@ -852,8 +855,8 @@ if (IPL_OS_WINDOWS)
         set(UNITY_PLUGIN_DIR ${CMAKE_HOME_DIRECTORY}/../unity/src/project/SteamAudioUnity/Assets/Plugins/SteamAudio/Binaries/Windows/x86)
     elseif (IPL_CPU_X64)
         set(UNITY_PLUGIN_DIR ${CMAKE_HOME_DIRECTORY}/../unity/src/project/SteamAudioUnity/Assets/Plugins/SteamAudio/Binaries/Windows/x86_64)
-    elseif (IPL_CPU_ARM64EC)
-        # FMOD and Unity don't support ARM64EC.
+    elseif (IPL_CPU_ARM64EC AND NOT IPL_CPU_ARM64X)
+        # Standalone ARM64EC builds aren't used by the integrations. (ARM64X builds are used like ARM64 builds.)
     elseif (IPL_CPU_ARMV8)
         set(UNITY_PLUGIN_DIR ${CMAKE_HOME_DIRECTORY}/../unity/src/project/SteamAudioUnity/Assets/Plugins/SteamAudio/Binaries/Windows/ARM64)
     endif()
@@ -947,8 +950,8 @@ if (IPL_OS_WINDOWS)
         set(UNREAL_PLUGIN_DIR ${CMAKE_HOME_DIRECTORY}/../unreal/src/SteamAudioUnreal/Plugins/SteamAudio/Source/SteamAudioSDK/lib/windows-x86)
     elseif (IPL_CPU_X64)
         set(UNREAL_PLUGIN_DIR ${CMAKE_HOME_DIRECTORY}/../unreal/src/SteamAudioUnreal/Plugins/SteamAudio/Source/SteamAudioSDK/lib/windows-x64)
-    elseif (IPL_CPU_ARM64EC)
-        set(UNREAL_PLUGIN_DIR ${CMAKE_HOME_DIRECTORY}/../unreal/src/SteamAudioUnreal/Plugins/SteamAudio/Source/SteamAudioSDK/lib/windows-arm64ec)
+    elseif (IPL_CPU_ARM64EC AND NOT IPL_CPU_ARM64X)
+        # Standalone ARM64EC builds aren't used by the integrations. (ARM64X builds are used like ARM64 builds.)
     elseif (IPL_CPU_ARMV8)
         set(UNREAL_PLUGIN_DIR ${CMAKE_HOME_DIRECTORY}/../unreal/src/SteamAudioUnreal/Plugins/SteamAudio/Source/SteamAudioSDK/lib/windows-arm64)
     endif()
@@ -1020,6 +1023,11 @@ endif()
 #
 
 get_bin_subdir(IPL_BIN_SUBDIR)
+
+# ARM64X binaries replace the ARM64 binaries.
+if (IPL_CPU_ARM64X)
+    set(IPL_BIN_SUBDIR windows-arm64)
+endif()
 
 install(
     TARGETS             phonon
