@@ -43,13 +43,11 @@
 
 // CPU architecture
 
+// ARM64EC also defines _M_X64 and _M_AMD64 (it uses the x64 ABI, so that it can interoperate with x64 code), so check
+// for it first. ARM64EC code runs natively, so build it like ARM64, using NEON instead of emulated SSE.
 #if defined(_M_ARM64EC)
-// ARM64EC defines _M_X64, so it would otherwise be built as x64, using SSE code paths that are emulated. Build for
-// native ARM64 (e.g., -A ARM64) instead.
-#error "ARM64EC is not supported. Build for ARM64 instead."
-#endif
-
-#if defined(_M_IX86) || defined(__i386__)
+#define IPL_CPU_ARM64
+#elif defined(_M_IX86) || defined(__i386__)
 #define IPL_CPU_X86
 #elif defined(_M_X64) || defined(__x86_64__)
 #define IPL_CPU_X64

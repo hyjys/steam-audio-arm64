@@ -505,8 +505,8 @@ def configure_cmake(name, cmake_layers, platform, cmake, vs_version, ndk_path, e
             cmake_args += ['-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>']
         else:
             cmake_args += ['-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>DLL']
-    elif platform == 'windows-arm64':
-        cmake_args += ['-G', vs_generator_name(vs_version), '-A', 'ARM64']
+    elif platform in ['windows-arm64', 'windows-arm64ec']:
+        cmake_args += ['-G', vs_generator_name(vs_version), '-A', 'ARM64EC' if platform == 'windows-arm64ec' else 'ARM64']
         if not shared_crt:
             cmake_args += ['-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>']
         else:
@@ -817,7 +817,7 @@ print('Host platform:', host_platform)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-p', '--platform', help = "Target operating system.", choices = ['windows', 'osx', 'linux', 'android', 'ios', 'wasm'], type = str.lower, default = host_os)
-parser.add_argument('-a', '--architecture', help = "CPU architecture.", choices = ['x86', 'x64', 'armv7', 'arm64'], type = str.lower, default = 'x64')
+parser.add_argument('-a', '--architecture', help = "CPU architecture.", choices = ['x86', 'x64', 'armv7', 'arm64', 'arm64ec'], type = str.lower, default = 'x64')
 parser.add_argument('-t', '--toolchain', help = "Compiler toolchain. (Windows only)", choices = ['vs2013', 'vs2015', 'vs2017', 'vs2019', 'vs2022', 'vs2026'], type = str.lower, default = 'vs2019')
 parser.add_argument('--ndk', help = "Path to the Android NDK. (Android only)", default = os.getenv('ANDROID_NDK'))
 parser.add_argument('--emsdk', help = "Path to the Emscripten SDK. (WebAssembly only)", default = os.getenv('EMSDK'))
