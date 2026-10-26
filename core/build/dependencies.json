@@ -312,8 +312,28 @@
             ["install/$platform/lib", "lib/$platform/$config"]
        ]
     },
+    "ispc_arm64": {
+        "tool": true,
+        "platforms": ["linux-arm64"],
+        "check": {
+            "programs": [["ispc"]]
+        },
+        "fetch": {
+            "url": {
+                "linux-x64": "https://github.com/ispc/ispc/releases/download/v1.32.0/ispc-v1.32.0-linux.tar.gz",
+                "linux-arm64": "https://github.com/ispc/ispc/releases/download/v1.32.0/ispc-v1.32.0-linux.aarch64.tar.gz"
+            },
+            "prefix": {
+                "linux-x64": "ispc-v1.32.0-linux",
+                "linux-arm64": "ispc-v1.32.0-linux.aarch64"
+            }
+        },
+        "copy": [
+            ["build/$platform/bin", "bin/$platform"]
+        ]
+    },
     "embree": {
-        "platforms": ["windows-x86", "windows-x64", "linux-x86", "linux-x64", "osx"],
+        "platforms": ["windows-x86", "windows-x64", "linux-x86", "linux-x64", "linux-arm64", "osx"],
         "check": {
             "headers": ["rtcore.h"],
             "static_libraries": [
@@ -325,7 +345,7 @@
                 ["embree"]
             ]
         },
-        "depends": ["ispc"],
+        "depends": ["ispc", "ispc_arm64"],
         "fetch": {
             "git": "https://github.com/RenderKit/embree.git",
             "tag": "ff9381774dc99fea81a932ad276677aad6a3d4dd",
@@ -398,6 +418,19 @@
                     "platforms": ["osx"],
                     "flags": [
                         "-DEMBREE_ISPC_EXECUTABLE=$deps/ispc/bin/osx/ispc"
+                    ]
+                },
+                {
+                    "platforms": ["linux-arm64"],
+                    "flags": [
+                        "-DEMBREE_MAX_ISA=NEON"
+                    ]
+                },
+                {
+                    "stamp": false,
+                    "platforms": ["linux-arm64"],
+                    "flags": [
+                        "-DEMBREE_ISPC_EXECUTABLE=$deps/ispc_arm64/bin/$host_platform/ispc"
                     ]
                 }
             ]

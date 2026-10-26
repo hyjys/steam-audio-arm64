@@ -61,6 +61,15 @@
 #pragma message "WARNING: Unsupported CPU architecture!"
 #endif
 
+// Embree
+
+// IPL_USES_EMBREE is defined when Steam Audio is built with Embree support. Embree is built for x86 and x64, and for
+// arm64 on Linux. On macOS, it is only built for x86_64, so it must not be used by the arm64 slice of a universal
+// binary.
+#if defined(IPL_USES_EMBREE) && (defined(IPL_CPU_X86) || defined(IPL_CPU_X64) || (defined(IPL_CPU_ARM64) && defined(IPL_OS_LINUX)))
+#define IPL_EMBREE_AVAILABLE
+#endif
+
 // Compiler
 
 #if defined(_MSC_VER)
