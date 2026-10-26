@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import platform as pyplatform
 import re
 import shutil
 import stat
@@ -516,7 +517,9 @@ def configure_cmake(name, cmake_layers, platform, cmake, vs_version, ndk_path, e
         cmake_args += ['-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE']
     elif platform == 'linux-arm64':
         cmake_args += ['-G', 'Unix Makefiles']
-        cmake_args += ['-DCMAKE_TOOLCHAIN_FILE=' + toolchain('linux_arm64')]
+        if host_arch != 'arm64':
+            # Cross-compile from an x64 host. On an arm64 host, build natively.
+            cmake_args += ['-DCMAKE_TOOLCHAIN_FILE=' + toolchain('linux_arm64')]
         cmake_args += ['-DCMAKE_BUILD_TYPE=' + ('Debug' if debug else 'Release')]
         cmake_args += ['-DCMAKE_POSITION_INDEPENDENT_CODE=TRUE']
     elif platform == 'osx':
@@ -780,10 +783,16 @@ elif sys.platform == 'darwin':
 else:
     host_os = 'linux'
 
+host_machine = pyplatform.machine().lower()
 if host_os == 'windows':
-    host_platform = 'windows-x64'
+    # An x64 Python running under emulation on Windows on ARM reports AMD64, so check the native architecture.
+    host_machine = os.environ.get('PROCESSOR_ARCHITEW6432', os.environ.get('PROCESSOR_ARCHITECTURE', host_machine)).lower()
+host_arch = 'arm64' if host_machine in ['aarch64', 'arm64', 'armv8', 'armv8l'] else 'x64'
+
+if host_os == 'windows':
+    host_platform = 'windows-' + host_arch
 elif host_os == 'linux':
-    host_platform = 'linux-x64'
+    host_platform = 'linux-' + host_arch
 elif host_os == 'osx':
     host_platform = 'osx'
 

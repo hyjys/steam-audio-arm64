@@ -14,6 +14,7 @@
 
 import argparse
 import os
+import platform
 import re
 import subprocess
 import sys
@@ -29,6 +30,17 @@ def detect_host_system():
         return 'linux'
     else:
         return ''
+
+# Detects the host CPU architecture ('x64' or 'arm64').
+def detect_host_architecture():
+    machine = platform.machine().lower()
+    if sys.platform == 'win32':
+        # An x64 Python running under emulation on Windows on ARM reports AMD64, so check the native architecture.
+        machine = os.environ.get('PROCESSOR_ARCHITEW6432', os.environ.get('PROCESSOR_ARCHITECTURE', machine)).lower()
+    if machine in ['aarch64', 'arm64', 'armv8', 'armv8l']:
+        return 'arm64'
+    else:
+        return 'x64'
 
 # Parses the command line.
 def parse_command_line(host_system):
@@ -115,7 +127,8 @@ def cmake_generate(args):
         if args.architecture == 'x86':
             # For Linux x86, specify -m32 explicitly.
             cmake_args += ['-DCMAKE_C_FLAGS=-m32', '-DCMAKE_CXX_FLAGS=-m32', '-DCMAKE_SHARED_LINKER_FLAGS=-m32']
-        elif args.architecture == 'arm64':
+        elif args.architecture == 'arm64' and detect_host_architecture() != 'arm64':
+            # Cross-compile from an x64 host. On an arm64 host, build natively.
             cmake_args += ['-DCMAKE_TOOLCHAIN_FILE=' + root_dir() + '/build/toolchain_linux_arm64.cmake']
 
     elif args.platform == 'osx':
@@ -264,16 +277,23 @@ def find_tool(name, dir_regex, min_version):
 
     if latest_version_path is not None:
         host_platform = detect_host_system()
-        subdirectory = None
+        host_architecture = detect_host_architecture()
+        subdirectories = []
         if host_platform == 'windows':
-            subdirectory = 'windows-x64'
+            # Windows on ARM can run x64 tools under emulation, so fall back to them if there is no native build.
+            subdirectories = ['windows-' + host_architecture, 'windows-x64']
         elif host_platform == 'linux':
-            subdirectory = 'linux-x64'
+            subdirectories = ['linux-' + host_architecture]
         elif host_platform == 'osx':
-            subdirectory = 'osx'
+            subdirectories = ['osx']
 
-        if subdirectory is not None:
-            latest_version_path = os.path.join(latest_version_path, subdirectory)
+        for subdirectory in subdirectories:
+            if os.path.exists(os.path.join(latest_version_path, subdirectory)):
+                latest_version_path = os.path.join(latest_version_path, subdirectory)
+                break
+        else:
+            if len(subdirectories) > 0:
+                latest_version_path = os.path.join(latest_version_path, subdirectories[0])
 
     return latest_version_path
 
