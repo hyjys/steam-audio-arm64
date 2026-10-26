@@ -586,6 +586,12 @@ def configure_cmake(name, cmake_layers, platform, cmake, vs_version, ndk_path, e
 
     # Some dependencies declare cmake_minimum_required() versions older than 3.5, which CMake 4.0 and later reject.
     cmake_args += ['-DCMAKE_POLICY_VERSION_MINIMUM=3.5']
+
+    # CMAKE_MSVC_RUNTIME_LIBRARY (set above) is ignored unless policy CMP0091 is NEW, which dependencies that declare
+    # cmake_minimum_required() versions older than 3.15 (e.g., mysofa, PFFFT) don't set. They would then be built with
+    # the DLL runtime (/MD), which fails to link into phonon built with the static runtime (/MT).
+    if platform.startswith('windows-'):
+        cmake_args += ['-DCMAKE_POLICY_DEFAULT_CMP0091=NEW']
     cmake_args += ['-S', src_dir, '-B', build_dir]
 
     run_command([cmake] + cmake_args)
