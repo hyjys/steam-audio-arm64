@@ -63,9 +63,9 @@ void FSteamAudioModule::StartupModule()
     FString BaseDir = Plugin->GetBaseDir();
 #if PLATFORM_WINDOWS
 #if defined(_M_ARM64EC)
-    // ARM64EC can load both ARM64EC and x64 DLLs. Prefer the ARM64EC DLL (as SteamAudioSDK.Build.cs does), since it
-    // runs natively instead of under emulation.
-    FString LibraryPath = BaseDir + TEXT("/Source/SteamAudioSDK/lib/windows-arm64ec/phonon.dll");
+    // The arm64 DLL is an ARM64X DLL, which ARM64EC can load. Prefer it (as SteamAudioSDK.Build.cs does), since it runs
+    // natively instead of under emulation, and fall back to the x64 DLL, which ARM64EC can also load.
+    FString LibraryPath = BaseDir + TEXT("/Source/SteamAudioSDK/lib/windows-arm64/phonon.dll");
     if (!FPaths::FileExists(LibraryPath))
     {
         LibraryPath = BaseDir + TEXT("/Source/SteamAudioSDK/lib/windows-x64/phonon.dll");
